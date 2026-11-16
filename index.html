@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Watch Face Uploader</title>
+<style>
+:root{--bg:#f4f5f8;--fg:#181b24;--muted:#5d6475;--panel:#e4e7ee;--card:#ffffff;--line:#d3d7e2;--accent:#2563d9;--accent-fg:#fff;--ok:#1f9d57;--warn:#b45309;--err:#c62828;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161c;--fg:#eceef4;--muted:#9aa1b2;--panel:#262a35;--card:#1d2029;--line:#323746;--accent:#4b8cf7;--ok:#5ddc8a;--warn:#f0b05a;--err:#ff8a80;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14161c;--fg:#eceef4;--muted:#9aa1b2;--panel:#262a35;--card:#1d2029;--line:#323746;--accent:#4b8cf7;--ok:#5ddc8a;--warn:#f0b05a;--err:#ff8a80;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif;
+  padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 150px max(16px,env(safe-area-inset-left))}
+main{max-width:640px;margin:auto}
+h1{font-size:22px;margin:4px 0 6px}
+.lead{color:var(--muted);margin:0 0 14px}
+.tabs{display:flex;gap:6px;background:var(--panel);padding:4px;border-radius:12px;margin-bottom:14px}
+.tabs button{flex:1;border:0;background:transparent;color:var(--fg);font:600 15px inherit;padding:11px 8px;border-radius:9px;min-height:44px}
+.tabs button[aria-selected="true"]{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.card{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--card);color:var(--fg);border:2px solid var(--line);border-radius:14px;padding:10px;font:inherit;cursor:pointer}
+.card[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+.card .pic{aspect-ratio:1/1;width:100%;border-radius:12px;background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#888;font-size:12px}
+.card img{width:100%;height:100%;object-fit:cover;display:block}
+.nm{font-weight:600}
+.meta{font-size:12.5px;color:var(--muted)}
+.warn{color:var(--warn)}
+.note{font-size:12.5px;color:var(--muted)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+input[type=file],select{width:100%;font:inherit;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg);min-height:44px}
+label{display:block;color:var(--muted);font-size:13px;margin:10px 0 4px}
+details{margin-top:14px;color:var(--muted)}
+summary{cursor:pointer;padding:8px 0;min-height:44px;display:flex;align-items:center}
+#empty{color:var(--muted);padding:20px 0}
+#dock{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);
+  padding:10px max(16px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+#dock .in{max-width:640px;margin:auto}
+#sel{font-size:13.5px;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#go{width:100%;border:0;border-radius:12px;background:var(--accent);color:var(--accent-fg);font:700 17px inherit;padding:14px;min-height:48px}
+#go:disabled{opacity:.45}
+#other{width:100%;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--fg);font:600 14px inherit;padding:10px;margin-top:10px;min-height:44px}
+#bar{height:10px;background:var(--panel);border-radius:5px;overflow:hidden;margin:8px 0 0}
+#fill{height:100%;width:0;background:var(--ok);transition:width .15s}
+#log{font-size:12.5px;color:var(--muted);white-space:pre-wrap;max-height:62px;overflow:auto;margin-top:6px}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Watch Face Uploader</h1>
+  <p class="lead">Pick a face from the list or use your own .bin file, then send it to the watch. Open this page in Bluefy on iPhone (or Chrome on Android) and disconnect the watch from Chronos first.</p>
+
+  <div class="tabs" role="tablist">
+    <button id="tab-faces" role="tab" aria-selected="true" type="button">Faces</button>
+    <button id="tab-file" role="tab" aria-selected="false" type="button">My file</button>
+  </div>
+
+  <section id="pane-faces">
+    <div id="grid" class="grid"></div>
+    <div id="empty" hidden></div>
+  </section>
+
+  <section id="pane-file" hidden>
+    <div class="panel">
+      <label for="file">Watch face file (.bin)</label>
+      <input id="file" type="file" accept=".bin,application/octet-stream">
+      <div id="fileinfo" class="meta" style="margin-top:8px"></div>
+    </div>
+  </section>
+
+  <details>
+    <summary>Advanced</summary>
+    <label for="frame">Bytes per frame (lower it if sending fails)</label>
+    <select id="frame">
+      <option value="168">168 (safe for iPhone)</option>
+      <option value="120">120 (extra safe)</option>
+      <option value="240">240</option>
+      <option value="504">504 (same as Chronos on Android)</option>
+    </select>
+    <button id="other" type="button">Choose a different watch</button>
+  </details>
+</main>
+
+<div id="dock">
+  <div class="in">
+    <div id="sel">Nothing selected</div>
+    <button id="go" type="button" disabled>Upload to watch</button>
+    <div id="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="fill"></div></div>
+    <div id="log" aria-live="polite"></div>
+  </div>
+</div>
+
+<script>
+/* ---- Chronos / WearFit upload protocol (Nordic UART, 1024-byte blocks, CRC16/MODBUS) ---- */
+var SERVICE="6e400001-b5a3-f393-e0a9-e50e24dcca9e",
+WRITE="6e400002-b5a3-f393-e0a9-e50e24dcca9e",
+NOTIFY="6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+var START=[0xab,0,4,0xff,0x87,0x80,1], STOP=[0xab,0,4,0xff,0x87,0x80,0], BLOCK=1024;
+function crc16(d){var c=0xffff;for(var i=0;i<d.length;i++){c^=d[i];for(var j=0;j<8;j++)c=(c&1)?(c>>1)^0xa001:c>>1;}return c;}
+function blockCount(n){return Math.floor((n+BLOCK-1)/BLOCK);}
+function buildBlock(data,index,frameData){
+  var total=data.length, chunk=data.subarray(index*BLOCK,(index+1)*BLOCK);
+  var last=index===blockCount(total)-1, crc=crc16(chunk);
+  var h=new Uint8Array([0xb0,chunk.length>>8,chunk.length&255,index>>8,index&255,crc>>8,crc&255,last?1:0,0,(total>>16)&255,(total>>8)&255,total&255]);
+  var out=[h], seq=0;
+  for(var p=0;p<chunk.length;p+=frameData){
+    var part=chunk.subarray(p,p+frameData), f=new Uint8Array(part.length+5), n=part.length+5;
+    f[0]=0xaf;f[1]=n>>8;f[2]=n&255;f[3]=0;f[4]=seq++;f.set(part,5);out.push(f);
+  }
+  return out;
+}
+if(typeof module!=="undefined"){module.exports={buildBlock:buildBlock,crc16:crc16,blockCount:blockCount};}
+
+/* ---- small helpers ---- */
+function $(id){return document.getElementById(id);}
+function log(t){var e=$("log");e.textContent+=t+"\n";e.scrollTop=e.scrollHeight;}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function waitMs(p,ms,msg){return Promise.race([p,new Promise(function(_,rej){setTimeout(function(){rej(new Error(msg));},ms);})]);}
+var BIG_KB=500;   // a 569 KB face was rejected by the watch; faces up to ~470 KB worked
+
+/* Read the screen size of a face from its first record (null = not a face file). */
+function binInfo(d){
+  if(!d||d.length<24)return null;
+  var dv=new DataView(d.buffer,d.byteOffset,d.byteLength), n=dv.getUint32(0,true);
+  if(n<1||n>5000||4+20*n>d.length)return null;
+  return {w:dv.getUint16(12,true),h:dv.getUint16(14,true)};
+}
+
+/* ---- state ---- */
+var faces=[], selected=-1, mode="faces", pickedFile=null, lastDev=null, busy=false;
+
+function metaText(f){
+  var parts=[];
+  if(typeof f.kb==="number")parts.push(f.kb+" KB");
+  if(f.screen&&f.screen!=="240x240")parts.push(f.screen+" (watch is 240x240)");
+  if(typeof f.kb==="number"&&f.kb>BIG_KB)parts.push("may be too big");
+  return parts.join(" \u00b7 ");
+}
+
+function renderFaces(){
+  var g=$("grid");g.textContent="";
+  faces.forEach(function(f,i){
+    var b=document.createElement("button");b.type="button";b.className="card";
+    b.setAttribute("aria-pressed",i===selected?"true":"false");
+    var pic=document.createElement("span");pic.className="pic";
+    if(f.preview){
+      var img=document.createElement("img");img.alt="";img.loading="lazy";img.src=f.preview;
+      img.onerror=function(){img.remove();pic.textContent="no preview";};
+      pic.appendChild(img);
+    }else{pic.textContent="no preview";}
+    var nm=document.createElement("span");nm.className="nm";nm.textContent=f.name||f.file;
+    var meta=document.createElement("span");meta.className="meta";
+    var warn=(f.screen&&f.screen!=="240x240")||(typeof f.kb==="number"&&f.kb>BIG_KB);
+    if(warn)meta.className+=" warn";
+    meta.textContent=metaText(f);
+    b.appendChild(pic);b.appendChild(nm);b.appendChild(meta);
+    if(f.note){var nt=document.createElement("span");nt.className="note";nt.textContent=f.note;b.appendChild(nt);}
+    b.onclick=function(){selected=i;renderFaces();updateDock();};
+    g.appendChild(b);
+  });
+}
+
+function updateDock(){
+  var label="Nothing selected", ok=false;
+  if(mode==="faces"&&selected>=0&&faces[selected]){
+    label="Selected: "+(faces[selected].name||faces[selected].file);ok=true;
+  }else if(mode==="file"&&pickedFile){
+    label="Selected file: "+pickedFile.name;ok=true;
+  }
+  $("sel").textContent=label;
+  $("go").disabled=!ok||busy;
+  $("other").disabled=busy;
+}
+
+function setMode(m){
+  mode=m;
+  $("tab-faces").setAttribute("aria-selected",m==="faces"?"true":"false");
+  $("tab-file").setAttribute("aria-selected",m==="file"?"true":"false");
+  $("pane-faces").hidden=m!=="faces";
+  $("pane-file").hidden=m!=="file";
+  updateDock();
+}
+$("tab-faces").onclick=function(){setMode("faces");};
+$("tab-file").onclick=function(){setMode("file");};
+
+$("file").onchange=function(){
+  pickedFile=$("file").files[0]||null;
+  var info=$("fileinfo");info.textContent="";info.className="meta";
+  if(pickedFile){
+    var kb=Math.round(pickedFile.size/102.4)/10, text=pickedFile.name+" \u00b7 "+kb+" KB";
+    if(kb>BIG_KB){text+=" \u00b7 may be too big for the watch";info.className="meta warn";}
+    info.textContent=text;
+  }
+  updateDock();
+};
+
+fetch("faces/faces.json",{cache:"no-cache"}).then(function(r){
+  if(!r.ok)throw new Error("HTTP "+r.status);return r.json();
+}).then(function(j){
+  faces=(j&&j.faces)||[];
+  if(!faces.length){var e=$("empty");e.hidden=false;e.textContent="No faces in the list yet. Use the My file tab, or add .bin files to the faces folder.";}
+  renderFaces();updateDock();
+}).catch(function(err){
+  var e=$("empty");e.hidden=false;
+  e.textContent="Could not load the faces list ("+err.message+"). Open this page from its web address, not from a local file. You can still use the My file tab.";
+});
+
+/* ---- connection ---- */
+async function openDevice(){
+  if(lastDev){
+    log("Reconnecting to the same watch...");
+    try{
+      if(lastDev.gatt.connected)lastDev.gatt.disconnect();
+      await sleep(300);
+      var s=await waitMs(lastDev.gatt.connect(),10000,"The watch did not answer");
+      return {dev:lastDev,server:s};
+    }catch(e){
+      lastDev=null;
+      throw new Error(e.message+". Wait a few seconds, then press the button again to pick the watch from the list.");
+    }
+  }
+  log("Choose the watch in the list...");
+  var dev=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:[SERVICE]});
+  lastDev=dev;
+  dev.addEventListener("gattserverdisconnected",function(){log("Watch disconnected.");});
+  var server=await dev.gatt.connect();
+  return {dev:dev,server:server};
+}
+
+/* The data comes from the selected face (downloaded) or from the chosen file. */
+async function loadData(){
+  if(mode==="faces"){
+    var f=faces[selected];
+    log("Downloading "+(f.name||f.file)+"...");
+    var r=await fetch(f.file,{cache:"no-cache"});
+    if(!r.ok)throw new Error("Could not download "+f.file+" (HTTP "+r.status+")");
+    return new Uint8Array(await r.arrayBuffer());
+  }
+  return new Uint8Array(await pickedFile.arrayBuffer());
+}
+
+async function upload(){
+  if(!navigator.bluetooth){log("This browser has no Bluetooth access. Open the page in Bluefy (iPhone) or Chrome (Android), outside any in-app view.");return;}
+  $("fill").style.width="0";$("bar").setAttribute("aria-valuenow","0");
+  var frame=parseInt($("frame").value,10), dev=null, nt=null, onNote=null;
+  try{
+    /* connect first, right after the tap, because the Bluetooth list needs a fresh tap */
+    var opened=await openDevice();dev=opened.dev;
+    var data=await loadData();
+    var info=binInfo(data);
+    if(!info)throw new Error("This does not look like a watch face .bin file. Nothing was sent.");
+    if(info.w!==240||info.h!==240)log("Warning: this face is "+info.w+"x"+info.h+" but the watch screen is 240x240.");
+    if(data.length>BIG_KB*1024)log("Warning: "+Math.round(data.length/1024)+" KB is big; the watch rejected a 569 KB face before.");
+    var total=blockCount(data.length);
+    var svc=await opened.server.getPrimaryService(SERVICE);
+    var wr=await svc.getCharacteristic(WRITE);
+    nt=await svc.getCharacteristic(NOTIFY);
+    var ack=null;
+    onNote=function(e){
+      var v=new Uint8Array(e.target.value.buffer);
+      if(v.length>=5&&v[0]===0xb0&&v[1]===2){ack={next:(v[2]<<8)|v[3],done:v[4]===1};}
+    };
+    await nt.startNotifications();
+    nt.addEventListener("characteristicvaluechanged",onNote);
+    var send=function(p){return wr.writeValueWithoutResponse?wr.writeValueWithoutResponse(p):wr.writeValue(p);};
+    await send(new Uint8Array(START));await send(new Uint8Array(START));
+    var i=0, tries=0;
+    while(i<total){
+      ack=null;
+      var pk=buildBlock(data,i,frame);
+      for(var k=0;k<pk.length;k++){await send(pk[k]);await sleep(4);}
+      var t0=Date.now();
+      while(!ack&&Date.now()-t0<5000){await sleep(10);}
+      if(!ack){
+        tries++;
+        if(tries>5)throw new Error("No answer from the watch for block "+i+". Stopped.");
+        log("No ack for block "+i+", resending ("+tries+"/5)");
+        continue;
+      }
+      tries=0;i=ack.next;
+      var pct=100*Math.min(i,total)/total;
+      $("fill").style.width=pct+"%";$("bar").setAttribute("aria-valuenow",String(Math.round(pct)));
+      if(ack.done)break;
+    }
+    await send(new Uint8Array(STOP));
+    log("Done. The watch should apply the face now. Wait about 15 seconds before the next upload.");
+  }finally{
+    /* always release the connection, also after an error, so the watch is free next time */
+    try{if(nt&&onNote){nt.removeEventListener("characteristicvaluechanged",onNote);await nt.stopNotifications();}}catch(e){}
+    try{if(dev&&dev.gatt.connected)dev.gatt.disconnect();}catch(e){}
+  }
+}
+
+$("go").onclick=function(){
+  if(busy)return;
+  busy=true;updateDock();
+  upload().catch(function(e){log("Error: "+(e&&e.message?e.message:e));}).then(function(){busy=false;updateDock();});
+};
+$("other").onclick=function(){lastDev=null;log("Next upload will ask you to pick the watch.");};
+updateDock();
+/* keep the last content visible above the fixed bottom bar */
+function fitDock(){document.body.style.paddingBottom=($("dock").offsetHeight+16)+"px";}
+if(window.ResizeObserver){new ResizeObserver(fitDock).observe($("dock"));}
+window.addEventListener("resize",fitDock);fitDock();
+</script>
+</body>
+</html>

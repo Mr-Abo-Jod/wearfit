@@ -1,0 +1,28 @@
+{
+  "faces": [
+    {
+      "file": "faces/id_probe_batch_1.bin",
+      "name": "ID probe 1",
+      "note": "Test face: 10 element ids side by side (1B is the seconds control).",
+      "kb": 176.5,
+      "screen": "240x240",
+      "preview": "faces/id_probe_batch_1.png"
+    },
+    {
+      "file": "faces/id_probe_batch_2.bin",
+      "name": "ID probe 2",
+      "note": "Test face: 10 more element ids.",
+      "kb": 176.5,
+      "screen": "240x240",
+      "preview": "faces/id_probe_batch_2.png"
+    },
+    {
+      "file": "faces/steps_probe_0E.bin",
+      "name": "Steps probe (0E)",
+      "note": "Test face: 7 digit places of the steps id.",
+      "kb": 134.0,
+      "screen": "240x240",
+      "preview": "faces/steps_probe_0E.png"
+    }
+  ]
+}
